@@ -5,7 +5,7 @@ A reference [Model Context Protocol](https://modelcontextprotocol.io) server run
 ## MCP Endpoint
 
 ```
-https://<your-worker>.workers.dev/mcp
+https://servereverything.dev/mcp
 ```
 
 ## Features
