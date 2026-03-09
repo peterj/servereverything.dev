@@ -22,6 +22,10 @@
 			}
 		]
 	},
+	"assets": {
+		"directory": "./public",
+		"not_found_handling": "none"
+	},
 	"observability": {
 		"enabled": true
 	}
