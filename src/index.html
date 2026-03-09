@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Everything MCP Server</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #1a1a1a; max-width: 640px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.5rem; margin-bottom: .25rem; }
+  p.sub { color: #555; margin-bottom: 1.5rem; }
+  h2 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: .5rem; }
+  ul { padding-left: 1.25rem; }
+  li { margin-bottom: .25rem; }
+  code { background: #f0f0f0; padding: .1em .35em; border-radius: 3px; font-size: .9em; }
+  .endpoint { margin-top: 1.5rem; padding: 1rem; background: #f8f8f8; border-radius: 6px; }
+  .endpoint code { background: #e0e0e0; }
+  footer { margin-top: 2rem; color: #999; font-size: .85rem; }
+</style>
+</head>
+<body>
+  <h1>Everything MCP Server</h1>
+  <p class="sub">A reference MCP server running on Cloudflare Workers that exercises all features of the <a href="https://modelcontextprotocol.io">Model Context Protocol</a>.</p>
+
+  <div class="endpoint">
+    <strong>MCP endpoint:</strong> <code>/mcp</code>
+  </div>
+
+  <h2>Tools</h2>
+  <ul>
+    <li><code>echo</code> &mdash; echoes back input</li>
+    <li><code>get-annotated-message</code> &mdash; annotated messages with priority &amp; audience</li>
+    <li><code>get-tiny-image</code> &mdash; returns a tiny MCP logo image</li>
+    <li><code>get-sum</code> &mdash; adds two numbers</li>
+    <li><code>get-structured-content</code> &mdash; structured weather data with output schema</li>
+    <li><code>get-resource-reference</code> &mdash; returns a resource content block</li>
+    <li><code>get-resource-links</code> &mdash; returns resource link blocks</li>
+    <li><code>trigger-long-running-operation</code> &mdash; progress reporting demo</li>
+    <li><code>toggle-simulated-logging</code> &mdash; periodic multi-level logging</li>
+    <li><code>toggle-subscriber-updates</code> &mdash; resource subscription notifications</li>
+  </ul>
+
+  <h2>Resources</h2>
+  <ul>
+    <li>Dynamic text &amp; blob templates (<code>demo://resource/dynamic/…</code>)</li>
+    <li>Static documents (<code>instructions.md</code>, <code>features.md</code>)</li>
+  </ul>
+
+  <h2>Prompts</h2>
+  <ul>
+    <li><code>simple-prompt</code> &mdash; no arguments</li>
+    <li><code>args-prompt</code> &mdash; city + optional state</li>
+    <li><code>completable-prompt</code> &mdash; auto-completing department &amp; name</li>
+    <li><code>resource-prompt</code> &mdash; embeds a dynamic resource</li>
+  </ul>
+
+  <footer>Powered by Cloudflare Workers &amp; the Agents SDK</footer>
+</body>
+</html>
