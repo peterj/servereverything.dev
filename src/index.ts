@@ -9,10 +9,36 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { McpAgent } from "agents/mcp";
 import { z } from "zod";
+import WEATHER_DASHBOARD_HTML from "./widget.html";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
+
+// MCP Apps (SEP-1865) UI extension. UI resources use the `ui://` scheme and
+// the `text/html;profile=mcp-app` mime type, and are linked to tools via the
+// `_meta.ui.resourceUri` field.
+const UI_RESOURCE_MIME_TYPE = "text/html;profile=mcp-app";
+const WEATHER_DASHBOARD_URI = "ui://server-everything/weather-dashboard";
+
+// Shared weather data used by both the structured-content tool and the
+// interactive weather dashboard UI app.
+const WEATHER_DATA: Record<
+	string,
+	{ temperature: number; conditions: string; humidity: number }
+> = {
+	"New York": { temperature: 33, conditions: "Cloudy", humidity: 82 },
+	Chicago: {
+		temperature: 36,
+		conditions: "Light rain / drizzle",
+		humidity: 82,
+	},
+	"Los Angeles": {
+		temperature: 73,
+		conditions: "Sunny / Clear",
+		humidity: 48,
+	},
+};
 
 const MCP_TINY_IMAGE =
 	"iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAKsGlDQ1BJQ0MgUHJvZmlsZQAASImVlwdUU+kSgOfe9JDQEiIgJfQmSCeAlBBaAAXpYCMkAUKJMRBU7MriClZURLCs6KqIgo0idizYFsWC3QVZBNR1sWDDlXeBQ9jdd9575805c+a7c+efmf+e/z9nLgCdKZDJMlF1gCxpjjwyyI8dn5DIJvUABRiY0kBdIMyWcSMiwgCTUft3+dgGyJC9YzuU69/f/1fREImzhQBIBMbJomxhFsbHMe0TyuQ5ALg9mN9kbo5siK9gzJRjDWL8ZIhTR7hviJOHGY8fjomO5GGsDUCmCQTyVACaKeZn5wpTsTw0f4ztpSKJFGPsGbyzsmaLMMbqgiUWI8N4KD8n+S95Uv+WM1mZUyBIVfLIXoaF7C/JlmUK5v+fn+N/S1amYrSGOaa0NHlwJGaxvpAHGbNDlSxNnhI+yhLRcPwwpymCY0ZZmM1LHGWBfKyuIiNG6U8T85X589Pi40Y5VxI7ZZnB0SNsnx2pLJWipzHHWWBfKyuIiNG6U8T89Ji40Y5VxI7ZZSzM6JCx2J4Sr9cEansXywN8hurG6jce1b2X/Yr4SvX5qRFByv3LhjrXyzljuXMjlf2JhL7B4zFxCjjZTl+ylqyzAhlvDgzSOnPzo1Srs3BDuTY2gjlN0wXhESMMoRBELAhBjIhB+QggECQgBTEOeJ5Q2cUeLNl8+WS1LQcNhe7ZWI2Xyq0m8B2tHd0Bhi6syNH4j1r+C4irGtjvhWVAF4nBgcHT475Qm4BHEkCoNaO+SxnAKh3A1w5JVTIc0d8Q9cJCEAFNWCCDhiACViCLTiCK3iCLwRACIRDNCTATBBCGmRhnc+FhbAMCqAI1sNmKIOdsBv2wyE4CvVwCs7DZbgOt+AePIZ26IJX0AcfYQBBEBJCRxiIDmKImCE2iCPCQbyRACQMiUQSkCQkFZEiCmQhsgIpQoqRMmQXUokcQU4g55GrSCvyEOlAepF3yFcUh9JQJqqPmqMTUQ7KRUPRaHQGmorOQfPQfHQtWopWoAfROvQ8eh29h7ajr9B+HOBUcCycEc4Wx8HxcOG4RFwKTo5bjCvEleAqcNW4Rlwz7g6uHfca9wVPxDPwbLwt3hMfjI/BC/Fz8Ivxq/Fl+P34OvxF/B18B74P/51AJ+gRbAgeBD4hnpBKmEsoIJQQ9hJqCZcI9whdhI9EIpFFtCC6EYOJCcR04gLiauJ2Yg3xHLGV2EnsJ5FIOiQbkhcpnCQg5ZAKSFtJB0lnSbdJXaTPZBWyIdmRHEhOJEvJy8kl5APkM+Tb5G7yAEWdYkbxoIRTRJT5lHWUPZRGyk1KF2WAqkG1oHpRo6np1GXUUmo19RL1CfW9ioqKsYq7ylQVicpSlVKVwypXVDpUvtA0adY0Hm06TUFbS9tHO0d7SHtcEansXywN8hurG6jce1b2X/Yr4SvX5qRFByv3LhjrXyzljuXMjlf2JhL7B4zFxCjjZTl+ylqyzAhlvDgzSOnPzo1Srs3BDuTY2gjlN0wXhESMMoRBELAhBjIhB+QggECQgBTEOeJ5Q2cUeLNl8+WS1LQcNhe7ZWI2Xyq0m8B2tHd0Bhi6syNH4j1r+C4irGtjvhWVAF4nBgcHT475Qm4BHEkCoNaO+SxnAKh3A1w5JVTIc0d8Q9cJCEAFNWCCDhiACViCLTiCK3iCLwRACIRDNCTATBBCGmRhnc+FhbAMCqAI1sNmKIOdsBv2wyE4CvVwCs7DZbgOt+AePIZ26IJX0AcfYQBBEBJCRxiIDmKImCE2iCPCQbyRACQMiUQSkCQkFZEiCmQhsgIpQoqRMmQXUokcQU4g55GrSCvyEOlAepF3yFcUh9JQJqqPmqMTUQ7KRUPRaHQGmorOQfPQfHQtWopWoAfROvQ8eh29h7ajr9B+HOBUcCycEc4Wx8HxcOG4RFwKTo5bjCvEleAqcNW4Rlwz7g6uHfca9wVPxDPwbLwt3hMfjI/BC/Fz8Ivxq/Fl+P34OvxF/B18B74P/51AJ+gRbAgeBD4hnpBKmEsoIJQQ9hJqCZcI9whdhI9EIpFFtCC6EYOJCcR04gLiauJ2Yg3xHLGV2EnsJ5FIOiQbkhcpnCQg5ZAKSFtJB0lnSbdJXaTPZBWyIdmRHEhOJEvJy8kl5APkM+Tb5G7yAEWdYkbxoIRTRJT5lHWUPZRGyk1KF2WAqkG1oHpRo6np1GXUUmo19RL1CfW9ioqKsYq7ylQVicpSlVKVwypXVDpUvtA0adY0Hm06TUFbS9tHO0d7SHtcEansXywN8hurG6jce1b2X/Yr4SvX5qRFByv3LhjrXyzljuXMjlf2JhL7B4zFxCjjZTl+ylqyzAhlvDgzSOnPzo1Srs3BDuTY2gjlN0wXhESMMoRBELAhBjIhB+QggECQgBTEOeJ5Q2cUeLNl8+WS1LQcNhe7ZWI2Xyq0m8B2tHd0Bhi6syNH4j1r+C4irGtjvhWVAF4nBgcHT475Qm4BHEkCoNaO+SxnAKh3A1w5JVTIc0d8Q9cJCEAFNWCCDhiACViCLTiCK3iCLwRACIRDNOTATBBCGmRhnc+FhbAMCqAI1sNmKIOdsBv2wyE4CvVwCs7DZbgOt+AePIZ26IJX0AcfYQBBEBJCRxiIDmKImCE2iCPCQbyRACQMiUQSkCQkFZEiCmQhsgIpQoqRMmQXUokcQU4g55GrSCvyEOlAepF3yFcUh9JQJqqPmqMTUQ7KRUPRaHQGmorOQfPQfHQtWopWoAfROvQ8eh29h7ajr9B+HOBUcCycEc4Wx8HxcOG4RFwKTo5bjCvEleAqcNW4Rlwz7g6uHfca9wVPxDPwbLwt3hMfjI/BC/Fz8Ivxq/Fl+P34OvxF/B18B74P/51AJ+gRbAgeBD4hnpBKmEsoIJQQ9hJqCZcI9whdhI9EIpFFtCC6EYOJCcR04gLiauJ2Yg3xHLGV2EnsJ5FIOiQbkhcpnCQg5ZAKSFtJB0lnSbdJXaTPZBWyIdmRHEhOJEvJy8kl5APkM+Tb5G7yAEWdYkbxoIRTRJT5lHWUPZRGyk1KF2WAqkG1oHpRo6np1GXUUmo19RL1CfW9ioqKsYq7ylQVicpSlVKVwypXVDpUvtA0adY0Hm06TUFbS9tHO0d7SHtcEansXywN8hurG6jce1b2X/Yr4SvX5qRFByv3LhjrXyzljuXMjlf2JhL7B4zFxCjjZTl+ylqyzAhlvDgzSOnPzo1Srs3BDuTY2gjlN0wXhESMMoRBELAhBjIhB+QggECQgBTEOeJ5Q2cUeLNl8+WS1LQcNhe7ZWI2Xyq0m8B2tHd0Bhi6syNH4j1r+C4irGtjvhWVAF4nBgcHT475Qm4BHEkCoNaO+SxnAKh3A1w5JVTIc0d8Q9cJCEAFNWCCDhiACViCLTiCK3iCLwRACIRDNCTATBBCGmRhnc+FhbAMCqAI1sNmKIOdsBv2wyE4CvVwCs7DZbgOt+AePIZ26IJX0AcfYQBBEBJCRxiIDmKImCE2iCPCQbyRACQMiUQSkCQkFZEiCmQhsgIpQoqRMmQXUokcQU4g55GrSCvyEOlAepF3yFcUh9JQJqqPmqMTUQ7KRUPRaHQGmorOQfPQfHQtWopWoAfROvQ8eh29h7ajr9B+HOBUcCycEc4Wx8HxcOG4RFwKTo5bjCvEleAqcNW4Rlwz7g6uHfca9wVPxDPwbLwt3hMfjI/BC/Fz8Ivxq/Fl+P34OvxF/B18B74P/51AJ+gRbAgeBD4hnpBKmEsoIJQQ9hJqCZcI9whdhI9EIpFFtCC6EYOJCcR04gLiauJ2Yg3xHLGV2EnsJ5FIOiQbkhcpnCQg5ZAKSFtJB0lnSbdJXaTPZBWyIdmRHEhOJEvJy8kl5APkM+Tb5G7yAEWdYkbxoIRTRJT5lHWUPZRGyk1KF2WAqkG1oHpRo6np1GXUUmo19RL1CfW9ioqKsYq7ylQVicpSlVKVwypXVDpUvtA0adY0Hm06TUFbS9tHO0d7SHtc";
@@ -24,6 +50,7 @@ prompts, subscriptions, logging, and more to showcase MCP capabilities.
 
 ## Available Features
 - **Tools**: echo, annotated messages, image generation, math, structured content, resource references, progress tracking, logging, and subscriptions
+- **MCP Apps (UI)**: Interactive weather dashboard rendered as a sandboxed UI app (SEP-1865)
 - **Resources**: Dynamic text/blob templates and static documents
 - **Prompts**: Simple, parameterized, auto-completable, and resource-embedded prompts
 - **Subscriptions**: Resource change notifications
@@ -64,6 +91,12 @@ const STATIC_DOCS: Record<
 - \`trigger-long-running-operation\` — Simulates a multi-step operation with progress updates
 - \`toggle-simulated-logging\` — Starts/stops periodic random-leveled log messages
 - \`toggle-subscriber-updates\` — Starts/stops simulated resource update notifications
+- \`show-weather-dashboard\` — Renders an interactive weather dashboard UI app (MCP Apps / SEP-1865)
+
+## MCP Apps (UI)
+- \`ui://server-everything/weather-dashboard\` — Interactive weather dashboard view (\`text/html;profile=mcp-app\`)
+- Linked to the \`show-weather-dashboard\` tool via \`_meta.ui.resourceUri\`
+- Falls back to text/structured content on hosts without MCP Apps support
 
 ## Resources
 - Dynamic Text: \`demo://resource/dynamic/text/{resourceId}\`
@@ -179,6 +212,7 @@ export class MyMCP extends McpAgent {
 		this.registerTools();
 		this.registerResources();
 		this.registerPrompts();
+		this.registerUiApps();
 		this.setupSubscriptionHandlers();
 	}
 
@@ -332,31 +366,7 @@ export class MyMCP extends McpAgent {
 				outputSchema,
 			},
 			async (args) => {
-				const weatherMap: Record<
-					string,
-					{
-						temperature: number;
-						conditions: string;
-						humidity: number;
-					}
-				> = {
-					"New York": {
-						temperature: 33,
-						conditions: "Cloudy",
-						humidity: 82,
-					},
-					Chicago: {
-						temperature: 36,
-						conditions: "Light rain / drizzle",
-						humidity: 82,
-					},
-					"Los Angeles": {
-						temperature: 73,
-						conditions: "Sunny / Clear",
-						humidity: 48,
-					},
-				};
-				const weather = weatherMap[args.location];
+				const weather = WEATHER_DATA[args.location];
 				return {
 					content: [{ type: "text", text: JSON.stringify(weather) }],
 					structuredContent: weather,
@@ -834,6 +844,91 @@ export class MyMCP extends McpAgent {
 							},
 						},
 					],
+				};
+			},
+		);
+	}
+
+	// -------------------------------------------------------------------
+	// MCP Apps (interactive UI) — SEP-1865
+	// -------------------------------------------------------------------
+
+	private registerUiApps() {
+		// Register the UI resource. UI resources use the `ui://` scheme and the
+		// `text/html;profile=mcp-app` mime type. The HTML is rendered by the
+		// host inside a sandboxed iframe and communicates over postMessage.
+		this.server.registerResource(
+			"Weather Dashboard UI",
+			WEATHER_DASHBOARD_URI,
+			{
+				mimeType: UI_RESOURCE_MIME_TYPE,
+				description:
+					"Interactive weather dashboard UI app (MCP Apps / SEP-1865)",
+			},
+			async (uri) => ({
+				contents: [
+					{
+						uri: uri.toString(),
+						mimeType: UI_RESOURCE_MIME_TYPE,
+						text: WEATHER_DASHBOARD_HTML,
+						// Resource-level UI metadata: no external domains needed
+						// (fully self-contained), and request a visible border.
+						_meta: {
+							ui: {
+								csp: {
+									connectDomains: [],
+									resourceDomains: [],
+								},
+								prefersBorder: true,
+							},
+						},
+					},
+				],
+			}),
+		);
+
+		// Register the tool that renders results in the UI resource above.
+		// Hosts that support MCP Apps display the dashboard; other hosts fall
+		// back to the text/structured content returned below.
+		this.server.registerTool(
+			"show-weather-dashboard",
+			{
+				title: "Show Weather Dashboard",
+				description:
+					"Displays an interactive weather dashboard for a city. Renders as a UI app in hosts that support MCP Apps, with a text fallback otherwise.",
+				inputSchema: {
+					location: z
+						.enum(["New York", "Chicago", "Los Angeles"])
+						.default("New York")
+						.describe("City to show the weather for"),
+				},
+				outputSchema: {
+					temperature: z
+						.number()
+						.describe("Temperature in celsius"),
+					conditions: z
+						.string()
+						.describe("Weather conditions description"),
+					humidity: z.number().describe("Humidity percentage"),
+				},
+				_meta: {
+					ui: {
+						resourceUri: WEATHER_DASHBOARD_URI,
+						visibility: ["model", "app"],
+					},
+				},
+			},
+			async (args) => {
+				const location = args.location ?? "New York";
+				const weather = WEATHER_DATA[location];
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Weather for ${location}: ${weather.conditions}, ${weather.temperature}°C, ${weather.humidity}% humidity.`,
+						},
+					],
+					structuredContent: weather,
 				};
 			},
 		);

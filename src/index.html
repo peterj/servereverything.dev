@@ -6,12 +6,12 @@
 <title>Everything MCP Server</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta property="og:title" content="Everything MCP Server" />
-<meta property="og:description" content="A reference MCP server on Cloudflare Workers — tools, resources, prompts, subscriptions, and logging." />
+<meta property="og:description" content="A reference MCP server on Cloudflare Workers — tools, resources, prompts, subscriptions, logging, and interactive MCP Apps UI." />
 <meta property="og:image" content="/og.png" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Everything MCP Server" />
-<meta name="twitter:description" content="A reference MCP server on Cloudflare Workers — tools, resources, prompts, subscriptions, and logging." />
+<meta name="twitter:description" content="A reference MCP server on Cloudflare Workers — tools, resources, prompts, subscriptions, logging, and interactive MCP Apps UI." />
 <meta name="twitter:image" content="/og.png" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,6 +47,14 @@
     <li><code>trigger-long-running-operation</code> &mdash; progress reporting demo</li>
     <li><code>toggle-simulated-logging</code> &mdash; periodic multi-level logging</li>
     <li><code>toggle-subscriber-updates</code> &mdash; resource subscription notifications</li>
+    <li><code>show-weather-dashboard</code> &mdash; renders an interactive weather dashboard UI app</li>
+  </ul>
+
+  <h2>MCP Apps (UI)</h2>
+  <ul>
+    <li><code>ui://server-everything/weather-dashboard</code> &mdash; interactive weather dashboard view (<code>text/html;profile=mcp-app</code>)</li>
+    <li>Linked to the <code>show-weather-dashboard</code> tool via <code>_meta.ui.resourceUri</code> (<a href="https://github.com/modelcontextprotocol/ext-apps">MCP Apps / SEP-1865</a>)</li>
+    <li>Renders inline in hosts that support MCP Apps, with a text fallback otherwise</li>
   </ul>
 
   <h2>Resources</h2>

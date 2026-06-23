@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Weather Dashboard</title>
+		<style>
+			:root {
+				/* Fallbacks for hosts that do not provide theme variables. */
+				--color-background-primary: light-dark(#ffffff, #1a1a1a);
+				--color-background-secondary: light-dark(#f4f4f5, #262626);
+				--color-text-primary: light-dark(#171717, #fafafa);
+				--color-text-secondary: light-dark(#52525b, #a1a1aa);
+				--color-border-primary: light-dark(#e4e4e7, #3f3f46);
+				--color-background-info: light-dark(#dbeafe, #1e3a5f);
+				--color-text-info: light-dark(#1e40af, #93c5fd);
+				--font-sans: ui-sans-serif, system-ui, -apple-system, sans-serif;
+				--border-radius-lg: 12px;
+				--border-radius-md: 8px;
+				color-scheme: light dark;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				padding: 16px;
+				font-family: var(--font-sans);
+				background: var(--color-background-primary);
+				color: var(--color-text-primary);
+			}
+
+			.card {
+				border: 1px solid var(--color-border-primary);
+				border-radius: var(--border-radius-lg);
+				padding: 20px;
+				background: var(--color-background-secondary);
+			}
+
+			.header {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 8px;
+				margin-bottom: 16px;
+			}
+
+			.location {
+				font-size: 1.25rem;
+				font-weight: 600;
+				margin: 0;
+			}
+
+			.updated {
+				font-size: 0.75rem;
+				color: var(--color-text-secondary);
+			}
+
+			.temp {
+				font-size: 3rem;
+				font-weight: 700;
+				line-height: 1;
+				margin: 0 0 4px;
+			}
+
+			.conditions {
+				font-size: 1rem;
+				color: var(--color-text-secondary);
+				margin: 0 0 16px;
+			}
+
+			.stats {
+				display: flex;
+				gap: 12px;
+				margin-bottom: 20px;
+			}
+
+			.stat {
+				flex: 1;
+				background: var(--color-background-primary);
+				border: 1px solid var(--color-border-primary);
+				border-radius: var(--border-radius-md);
+				padding: 12px;
+			}
+
+			.stat-label {
+				font-size: 0.7rem;
+				text-transform: uppercase;
+				letter-spacing: 0.05em;
+				color: var(--color-text-secondary);
+				margin: 0 0 4px;
+			}
+
+			.stat-value {
+				font-size: 1.1rem;
+				font-weight: 600;
+				margin: 0;
+			}
+
+			.controls {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+			}
+
+			button {
+				font-family: inherit;
+				font-size: 0.85rem;
+				padding: 8px 14px;
+				border-radius: var(--border-radius-md);
+				border: 1px solid var(--color-border-primary);
+				background: var(--color-background-primary);
+				color: var(--color-text-primary);
+				cursor: pointer;
+				transition: background 0.15s ease;
+			}
+
+			button:hover {
+				background: var(--color-background-info);
+				color: var(--color-text-info);
+			}
+
+			button[aria-pressed="true"] {
+				background: var(--color-background-info);
+				color: var(--color-text-info);
+				border-color: var(--color-text-info);
+				font-weight: 600;
+			}
+
+			.loading {
+				color: var(--color-text-secondary);
+				font-style: italic;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="card">
+			<div class="header">
+				<h1 class="location" id="location">Weather Dashboard</h1>
+				<span class="updated" id="updated"></span>
+			</div>
+			<p class="temp" id="temp">--&deg;</p>
+			<p class="conditions" id="conditions" class="loading">
+				Waiting for data&hellip;
+			</p>
+			<div class="stats">
+				<div class="stat">
+					<p class="stat-label">Humidity</p>
+					<p class="stat-value" id="humidity">--</p>
+				</div>
+				<div class="stat">
+					<p class="stat-label">Feels Like</p>
+					<p class="stat-value" id="feels">--</p>
+				</div>
+			</div>
+			<div class="controls" id="controls">
+				<button type="button" data-city="New York">New York</button>
+				<button type="button" data-city="Chicago">Chicago</button>
+				<button type="button" data-city="Los Angeles">
+					Los Angeles
+				</button>
+			</div>
+		</div>
+
+		<script>
+			(function () {
+				"use strict";
+
+				// --- Minimal MCP postMessage JSON-RPC client -------------------
+				const PROTOCOL_VERSION = "2026-01-26";
+				let nextId = 1;
+				const pending = new Map();
+				const notificationHandlers = new Map();
+
+				function post(message) {
+					window.parent.postMessage(message, "*");
+				}
+
+				function request(method, params) {
+					const id = nextId++;
+					post({ jsonrpc: "2.0", id, method, params });
+					return new Promise((resolve, reject) => {
+						pending.set(id, { resolve, reject });
+					});
+				}
+
+				function notify(method, params) {
+					post({ jsonrpc: "2.0", method, params });
+				}
+
+				function onNotification(method, handler) {
+					notificationHandlers.set(method, handler);
+				}
+
+				window.addEventListener("message", (event) => {
+					const data = event.data;
+					if (!data || data.jsonrpc !== "2.0") return;
+
+					// Response to a request we sent.
+					if (data.id !== undefined && pending.has(data.id)) {
+						const { resolve, reject } = pending.get(data.id);
+						pending.delete(data.id);
+						if (data.error) {
+							reject(new Error(data.error.message || "RPC error"));
+						} else {
+							resolve(data.result);
+						}
+						return;
+					}
+
+					// Incoming notification.
+					if (data.method && notificationHandlers.has(data.method)) {
+						notificationHandlers.get(data.method)(data.params);
+					}
+				});
+
+				// --- Theming ---------------------------------------------------
+				function applyHostStyles(hostContext) {
+					if (!hostContext) return;
+					const vars = hostContext.styles && hostContext.styles.variables;
+					if (vars) {
+						for (const [key, value] of Object.entries(vars)) {
+							if (value != null) {
+								document.documentElement.style.setProperty(key, value);
+							}
+						}
+					}
+					if (hostContext.theme) {
+						document.documentElement.style.colorScheme =
+							hostContext.theme;
+					}
+				}
+
+				// --- Rendering -------------------------------------------------
+				const el = (id) => document.getElementById(id);
+
+				function render(weather, location) {
+					if (!weather) return;
+					if (location) el("location").textContent = location;
+					el("temp").innerHTML = `${Math.round(weather.temperature)}&deg;C`;
+					el("conditions").textContent = weather.conditions;
+					el("conditions").classList.remove("loading");
+					el("humidity").textContent = `${weather.humidity}%`;
+					const feels = Math.round(
+						weather.temperature - weather.humidity / 25,
+					);
+					el("feels").innerHTML = `${feels}&deg;C`;
+					el("updated").textContent = new Date().toLocaleTimeString();
+					updateActiveButton(location);
+					reportSize();
+				}
+
+				function updateActiveButton(location) {
+					document.querySelectorAll("#controls button").forEach((btn) => {
+						btn.setAttribute(
+							"aria-pressed",
+							btn.dataset.city === location ? "true" : "false",
+						);
+					});
+				}
+
+				function parseResult(result) {
+					if (!result) return null;
+					if (result.structuredContent) return result.structuredContent;
+					// Fallback: parse the JSON text content.
+					const textBlock =
+						result.content &&
+						result.content.find((c) => c.type === "text");
+					if (textBlock) {
+						try {
+							return JSON.parse(textBlock.text);
+						} catch (_e) {
+							return null;
+						}
+					}
+					return null;
+				}
+
+				let currentLocation = null;
+
+				// --- Interactive: refresh by calling the tool ------------------
+				async function loadCity(location) {
+					el("conditions").textContent = "Loading\u2026";
+					el("conditions").classList.add("loading");
+					try {
+						const result = await request("tools/call", {
+							name: "show-weather-dashboard",
+							arguments: { location },
+						});
+						currentLocation = location;
+						render(parseResult(result), location);
+					} catch (err) {
+						el("conditions").textContent = `Error: ${err.message}`;
+					}
+				}
+
+				document.getElementById("controls").addEventListener(
+					"click",
+					(event) => {
+						const btn = event.target.closest("button[data-city]");
+						if (btn) loadCity(btn.dataset.city);
+					},
+				);
+
+				// --- Size reporting -------------------------------------------
+				let lastHeight = 0;
+				function reportSize() {
+					const height = document.documentElement.scrollHeight;
+					const width = document.documentElement.scrollWidth;
+					if (height !== lastHeight) {
+						lastHeight = height;
+						notify("ui/notifications/size-changed", { width, height });
+					}
+				}
+				if (window.ResizeObserver) {
+					new ResizeObserver(reportSize).observe(document.body);
+				}
+
+				// --- Tool data from the host ----------------------------------
+				onNotification("ui/notifications/tool-input", (params) => {
+					const args = params && params.arguments;
+					if (args && args.location) {
+						currentLocation = args.location;
+						updateActiveButton(args.location);
+					}
+				});
+
+				onNotification("ui/notifications/tool-result", (params) => {
+					render(parseResult(params), currentLocation);
+				});
+
+				// --- Handshake -------------------------------------------------
+				request("ui/initialize", {
+					protocolVersion: PROTOCOL_VERSION,
+					capabilities: {},
+					appCapabilities: {
+						availableDisplayModes: ["inline", "fullscreen"],
+					},
+					clientInfo: { name: "weather-dashboard", version: "1.0.0" },
+				})
+					.then((result) => {
+						applyHostStyles(result && result.hostContext);
+						notify("ui/notifications/initialized", {});
+						reportSize();
+					})
+					.catch(() => {
+						// Host does not implement the handshake; render anyway.
+						reportSize();
+					});
+			})();
+		</script>
+	</body>
+</html>
