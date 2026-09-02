@@ -6,12 +6,12 @@
 <title>Everything MCP Server</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta property="og:title" content="Everything MCP Server" />
-<meta property="og:description" content="A reference MCP server on Cloudflare Workers — tools, resources, prompts, subscriptions, logging, and interactive MCP Apps UI." />
+<meta property="og:description" content="A stateless reference MCP server on Cloudflare Workers with tools, resources, prompts, progress reporting, and an interactive MCP App." />
 <meta property="og:image" content="/og.png" />
 <meta property="og:type" content="website" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Everything MCP Server" />
-<meta name="twitter:description" content="A reference MCP server on Cloudflare Workers — tools, resources, prompts, subscriptions, logging, and interactive MCP Apps UI." />
+<meta name="twitter:description" content="A stateless reference MCP server on Cloudflare Workers with tools, resources, prompts, progress reporting, and an interactive MCP App." />
 <meta name="twitter:image" content="/og.png" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -24,12 +24,12 @@
   code { background: #f0f0f0; padding: .1em .35em; border-radius: 3px; font-size: .9em; }
   .endpoint { margin-top: 1.5rem; padding: 1rem; background: #f8f8f8; border-radius: 6px; }
   .endpoint code { background: #e0e0e0; }
-  footer { margin-top: 2rem; color: #999; font-size: .85rem; }
+  footer { margin-top: 2rem; color: #777; font-size: .85rem; }
 </style>
 </head>
 <body>
   <h1>Everything MCP Server</h1>
-  <p class="sub">A reference MCP server running on Cloudflare Workers that exercises all features of the <a href="https://modelcontextprotocol.io">Model Context Protocol</a>.</p>
+  <p class="sub">A stateless reference server that exercises tools, resources, prompts, progress reporting, and MCP Apps from the <a href="https://modelcontextprotocol.io">Model Context Protocol</a>.</p>
 
   <div class="endpoint">
     <strong>MCP endpoint:</strong> <code>https://servereverything.dev/mcp</code>
@@ -45,8 +45,6 @@
     <li><code>get-resource-reference</code> &mdash; returns a resource content block</li>
     <li><code>get-resource-links</code> &mdash; returns resource link blocks</li>
     <li><code>trigger-long-running-operation</code> &mdash; progress reporting demo</li>
-    <li><code>toggle-simulated-logging</code> &mdash; periodic multi-level logging</li>
-    <li><code>toggle-subscriber-updates</code> &mdash; resource subscription notifications</li>
     <li><code>show-weather-dashboard</code> &mdash; renders an interactive weather dashboard UI app</li>
   </ul>
 
@@ -71,6 +69,6 @@
     <li><code>resource-prompt</code> &mdash; embeds a dynamic resource</li>
   </ul>
 
-  <footer>Powered by Cloudflare Workers &amp; the Agents SDK &middot;. Source code on <a href="https://github.com/peterj/servereverything.dev">GitHub</a></footer>
+  <footer>Powered by Cloudflare Workers &amp; the Agents SDK. Source code on <a href="https://github.com/peterj/servereverything.dev">GitHub</a></footer>
 </body>
 </html>
