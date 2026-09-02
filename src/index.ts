@@ -1,13 +1,9 @@
 import {
 	McpServer,
 	ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
-import { completable } from "@modelcontextprotocol/sdk/server/completable.js";
-import {
-	SubscribeRequestSchema,
-	UnsubscribeRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
-import { McpAgent } from "agents/mcp";
+	completable,
+} from "@modelcontextprotocol/server";
+import { createMcpHandler } from "agents/mcp/server";
 import { z } from "zod";
 import WEATHER_DASHBOARD_HTML from "./widget.html";
 
@@ -45,16 +41,14 @@ const MCP_TINY_IMAGE =
 
 const INSTRUCTIONS = `# Everything MCP Server (Cloudflare Workers Edition)
 
-This server exercises all features of the MCP protocol. It implements tools, resources,
-prompts, subscriptions, logging, and more to showcase MCP capabilities.
+This server exercises many features of the MCP protocol. It implements tools, resources,
+prompts, progress reporting, and more to showcase MCP capabilities.
 
 ## Available Features
-- **Tools**: echo, annotated messages, image generation, math, structured content, resource references, progress tracking, logging, and subscriptions
+- **Tools**: echo, annotated messages, image generation, math, structured content, resource references, and progress tracking
 - **MCP Apps (UI)**: Interactive weather dashboard rendered as a sandboxed UI app (SEP-1865)
 - **Resources**: Dynamic text/blob templates and static documents
-- **Prompts**: Simple, parameterized, auto-completable, and resource-embedded prompts
-- **Subscriptions**: Resource change notifications
-- **Logging**: Simulated multi-level logging`;
+- **Prompts**: Simple, parameterized, auto-completable, and resource-embedded prompts`;
 
 // Resource URI configuration
 const DYNAMIC_URI_BASE = "demo://resource/dynamic";
@@ -89,8 +83,6 @@ const STATIC_DOCS: Record<
 - \`get-resource-reference\` — Returns a resource content block for a given type and ID
 - \`get-resource-links\` — Returns multiple resource link content blocks
 - \`trigger-long-running-operation\` — Simulates a multi-step operation with progress updates
-- \`toggle-simulated-logging\` — Starts/stops periodic random-leveled log messages
-- \`toggle-subscriber-updates\` — Starts/stops simulated resource update notifications
 - \`show-weather-dashboard\` — Renders an interactive weather dashboard UI app (MCP Apps / SEP-1865)
 
 ## MCP Apps (UI)
@@ -107,31 +99,11 @@ const STATIC_DOCS: Record<
 - \`simple-prompt\` — No-argument prompt returning static text
 - \`args-prompt\` — Prompt with required city and optional state arguments
 - \`completable-prompt\` — Prompt with auto-completing department and name arguments
-- \`resource-prompt\` — Prompt that embeds a dynamic resource reference
-
-## Resource Subscriptions
-- Subscribe/unsubscribe via standard MCP requests
-- Use \`toggle-subscriber-updates\` tool to start periodic update notifications
-
-## Simulated Logging
-- Use \`toggle-simulated-logging\` tool to start periodic log messages
-- Messages cycle through all log levels (debug through emergency)`,
+- \`resource-prompt\` — Prompt that embeds a dynamic resource reference`,
 		mimeType: "text/markdown",
 		description: "Complete feature list",
 	},
 };
-
-// Log levels for simulated logging
-const LOG_LEVELS = [
-	"debug",
-	"info",
-	"notice",
-	"warning",
-	"error",
-	"critical",
-	"alert",
-	"emergency",
-] as const;
 
 // ---------------------------------------------------------------------------
 // Resource helpers
@@ -183,10 +155,10 @@ const resourceIdForTemplateCompleter = (value: string): string[] => {
 };
 
 // ---------------------------------------------------------------------------
-// MCP Agent
+// MCP server
 // ---------------------------------------------------------------------------
 
-export class MyMCP extends McpAgent {
+class EverythingServer {
 	server = new McpServer(
 		{
 			name: "server-everything",
@@ -194,26 +166,15 @@ export class MyMCP extends McpAgent {
 			version: "1.0.0",
 		},
 		{
-			capabilities: {
-				tools: { listChanged: true },
-				prompts: { listChanged: true },
-				resources: { subscribe: true, listChanged: true },
-				logging: {},
-			},
 			instructions: INSTRUCTIONS,
 		},
 	);
 
-	private loggingInterval: ReturnType<typeof setInterval> | null = null;
-	private subsInterval: ReturnType<typeof setInterval> | null = null;
-	private subscribedUris = new Set<string>();
-
-	async init() {
+	constructor() {
 		this.registerTools();
 		this.registerResources();
 		this.registerPrompts();
 		this.registerUiApps();
-		this.setupSubscriptionHandlers();
 	}
 
 	// -------------------------------------------------------------------
@@ -489,7 +450,7 @@ export class MyMCP extends McpAgent {
 			async (args, extra) => {
 				const { duration, steps } = args;
 				const stepDuration = duration / steps;
-				const progressToken = extra._meta?.progressToken;
+				const progressToken = extra.mcpReq._meta?.progressToken;
 
 				for (let i = 1; i <= steps; i++) {
 					await new Promise((resolve) =>
@@ -497,17 +458,14 @@ export class MyMCP extends McpAgent {
 					);
 
 					if (progressToken !== undefined) {
-						await this.server.server.notification(
-							{
-								method: "notifications/progress",
-								params: {
-									progress: i,
-									total: steps,
-									progressToken,
-								},
+						await extra.mcpReq.notify({
+							method: "notifications/progress",
+							params: {
+								progress: i,
+								total: steps,
+								progressToken,
 							},
-							{ relatedRequestId: extra.requestId },
-						);
+						});
 					}
 				}
 
@@ -522,81 +480,6 @@ export class MyMCP extends McpAgent {
 			},
 		);
 
-		// Toggle Simulated Logging
-		this.server.registerTool(
-			"toggle-simulated-logging",
-			{
-				title: "Toggle Simulated Logging",
-				description:
-					"Toggles simulated, random-leveled logging on or off",
-				inputSchema: {},
-			},
-			async (_args, extra) => {
-				const sessionId = extra?.sessionId;
-				let response: string;
-
-				if (this.loggingInterval) {
-					clearInterval(this.loggingInterval);
-					this.loggingInterval = null;
-					response = `Stopped simulated logging${sessionId ? ` for session ${sessionId}` : ""}`;
-				} else {
-					const sendLog = async () => {
-						const msg =
-							LOG_LEVELS[
-								Math.floor(Math.random() * LOG_LEVELS.length)
-							];
-						await this.server.sendLoggingMessage(
-							{ level: msg, data: `${msg}-level message` },
-							sessionId,
-						);
-					};
-					sendLog();
-					this.loggingInterval = setInterval(sendLog, 5000);
-					response = `Started simulated logging${sessionId ? ` for session ${sessionId}` : ""} at a 5 second pace. Client's selected logging level will be respected.`;
-				}
-
-				return {
-					content: [{ type: "text", text: response }],
-				};
-			},
-		);
-
-		// Toggle Subscriber Updates
-		this.server.registerTool(
-			"toggle-subscriber-updates",
-			{
-				title: "Toggle Subscriber Updates",
-				description:
-					"Toggles simulated resource subscription updates on or off",
-				inputSchema: {},
-			},
-			async (_args, extra) => {
-				const sessionId = extra?.sessionId;
-				let response: string;
-
-				if (this.subsInterval) {
-					clearInterval(this.subsInterval);
-					this.subsInterval = null;
-					response = `Stopped simulated resource updates${sessionId ? ` for session ${sessionId}` : ""}`;
-				} else {
-					const sendUpdates = async () => {
-						for (const uri of this.subscribedUris) {
-							await this.server.server.notification({
-								method: "notifications/resources/updated",
-								params: { uri },
-							});
-						}
-					};
-					sendUpdates();
-					this.subsInterval = setInterval(sendUpdates, 5000);
-					response = `Started simulated resource update notifications${sessionId ? ` for session ${sessionId}` : ""} at a 5 second pace. Client will receive updates for subscribed resources.`;
-				}
-
-				return {
-					content: [{ type: "text", text: response }],
-				};
-			},
-		);
 	}
 
 	// -------------------------------------------------------------------
@@ -934,69 +817,40 @@ export class MyMCP extends McpAgent {
 		);
 	}
 
-	// -------------------------------------------------------------------
-	// Subscription handlers
-	// -------------------------------------------------------------------
-
-	private setupSubscriptionHandlers() {
-		this.server.server.setRequestHandler(
-			SubscribeRequestSchema,
-			async (request, extra) => {
-				const { uri } = request.params;
-				this.subscribedUris.add(uri);
-
-				await this.server.sendLoggingMessage(
-					{
-						level: "info",
-						data: `Subscribed to resource: ${uri}`,
-					},
-					extra.sessionId,
-				);
-
-				return {};
-			},
-		);
-
-		this.server.server.setRequestHandler(
-			UnsubscribeRequestSchema,
-			async (request, extra) => {
-				const { uri } = request.params;
-				this.subscribedUris.delete(uri);
-
-				await this.server.sendLoggingMessage(
-					{
-						level: "info",
-						data: `Unsubscribed from resource: ${uri}`,
-					},
-					extra.sessionId,
-				);
-
-				return {};
-			},
-		);
-	}
 }
 
 // ---------------------------------------------------------------------------
 // Worker entry point
 // ---------------------------------------------------------------------------
 
-import HTML from "./index.html";
+function createServer() {
+	return new EverythingServer().server;
+}
+
+const mcpHandler = createMcpHandler(createServer, {
+	route: "/mcp",
+	allowedHostnames: [
+		"servereverything.dev",
+		"localhost",
+		"127.0.0.1",
+		"[::1]",
+	],
+	allowedOriginHostnames: [
+		"servereverything.dev",
+		"localhost",
+		"127.0.0.1",
+		"[::1]",
+	],
+});
 
 export default {
 	fetch(request: Request, env: Env, ctx: ExecutionContext) {
 		const url = new URL(request.url);
 
 		if (url.pathname === "/mcp") {
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
-		}
-
-		if (url.pathname === "/" || url.pathname === "/index.html") {
-			return new Response(HTML, {
-				headers: { "Content-Type": "text/html; charset=utf-8" },
-			});
+			return mcpHandler(request, env, ctx);
 		}
 
 		return new Response("Not found", { status: 404 });
 	},
-};
+} satisfies ExportedHandler<Env>;

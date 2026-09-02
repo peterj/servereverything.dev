@@ -1,10 +1,10 @@
 # Everything MCP Server
 
-A reference [Model Context Protocol](https://modelcontextprotocol.io) server running on Cloudflare Workers that exercises all MCP features — tools, resources, prompts, subscriptions, and logging.
+A stateless reference [Model Context Protocol](https://modelcontextprotocol.io) server running on Cloudflare Workers. It exercises tools, resources, prompts, progress reporting, and MCP Apps without a Durable Object.
 
 ## MCP Endpoint
 
-```
+```text
 https://servereverything.dev/mcp
 ```
 
@@ -13,7 +13,7 @@ https://servereverything.dev/mcp
 ### Tools
 
 | Tool | Description |
-|------|-------------|
+| ---- | ----------- |
 | `echo` | Echoes back input |
 | `get-annotated-message` | Messages with priority & audience annotations |
 | `get-tiny-image` | Returns a tiny MCP logo image |
@@ -22,8 +22,7 @@ https://servereverything.dev/mcp
 | `get-resource-reference` | Returns a resource content block |
 | `get-resource-links` | Returns resource link blocks |
 | `trigger-long-running-operation` | Progress reporting demo |
-| `toggle-simulated-logging` | Periodic multi-level logging |
-| `toggle-subscriber-updates` | Resource subscription notifications |
+| `show-weather-dashboard` | Interactive MCP Apps weather dashboard |
 
 ### Resources
 
